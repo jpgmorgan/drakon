@@ -1,0 +1,10 @@
+# Bun
+node_modules/
+
+# Foundry
+cache/
+out/
+broadcast/
+
+# Others
+.env
