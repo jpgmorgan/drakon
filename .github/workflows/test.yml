@@ -28,7 +28,7 @@ jobs:
 
       - name: Start Anvil
         run: |
-          anvil --fork-url $RPC_URL --fork-block-number 19441572
+          anvil --fork-url ${{ secrets.RPC_URL }} --fork-block-number 19441572 &
 
       - name: Run Forge tests
         run: |
