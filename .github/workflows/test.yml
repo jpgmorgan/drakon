@@ -30,6 +30,9 @@ jobs:
         run: |
           anvil --fork-url ${{ secrets.RPC_URL }} --fork-block-number 19441572 &
 
+      - name: Check gas snapshots
+        run: forge snapshot --check
+
       - name: Run Forge tests
         run: |
           forge test -vvv

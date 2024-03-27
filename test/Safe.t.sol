@@ -16,7 +16,7 @@ interface IERC721 {
     function ownerOf(uint256 tokenId) external view returns (address owner);
 }
 
-contract CounterTest is Test {
+contract SafeTest is Test {
     Safe public safe;
     address private constant WETH_ADDRESS = address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
     address private constant BAYC_ADDRESS = address(0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D);
