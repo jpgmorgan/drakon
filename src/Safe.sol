@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+
+pragma solidity ^0.8.21;
 
 interface IERC20 {
     function approve(address spender, uint256 amount) external returns (bool);
@@ -10,7 +14,7 @@ interface IERC721 {
     function safeTransferFrom(address from, address to, uint256 tokenId) external;
 }
 
-contract Safe {
+contract Safe is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     // Signers
     address public adminAddress;
     address public managerAddress;
@@ -19,7 +23,13 @@ contract Safe {
     event AdminAddressUpdated(address indexed newSigner);
     event ManagerAddressUpdated(address indexed newSigner);
 
-    constructor(address _adminAddress, address _managerAddress) {
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(address _adminAddress, address _managerAddress) public initializer {
+        __Ownable_init(msg.sender); //sets owner to msg.sender
+        __UUPSUpgradeable_init();
         adminAddress = _adminAddress;
         managerAddress = _managerAddress;
     }
@@ -69,4 +79,6 @@ contract Safe {
 
         return bytes4(0); // Return an invalid magic value otherwise
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 }
