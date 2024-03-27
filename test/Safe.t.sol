@@ -2,7 +2,9 @@
 pragma solidity ^0.8.21;
 
 import {Test} from "forge-std/Test.sol";
+import "forge-std/console.sol";
 import {Safe} from "../src/Safe.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 interface IWETH {
     function deposit() external payable;
@@ -18,16 +20,29 @@ interface IERC721 {
 
 contract SafeTest is Test {
     Safe public safe;
+    ERC1967Proxy public proxy;
+
     address private constant WETH_ADDRESS = address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
     address private constant BAYC_ADDRESS = address(0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D);
     address private constant ADMIN_ADDRESS = address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
     address private constant MANAGER_ADDRESS = address(0x70997970C51812dc3A010C7d01b50e0d17dc79C8);
     address private constant NULL_ADDRESS = address(0x0000000000000000000000000000000000000000);
+
     IERC721 private bayc = IERC721(BAYC_ADDRESS);
 
     function setUp() public {
         vm.startBroadcast();
-        safe = new Safe(ADMIN_ADDRESS, MANAGER_ADDRESS);
+
+        // Deploy the safe
+        safe = new Safe();
+
+        // Deploy the proxy, pointing to the implementation and initializing it
+        bytes memory initData = abi.encodeWithSelector(Safe.initialize.selector, ADMIN_ADDRESS, MANAGER_ADDRESS);
+        proxy = new ERC1967Proxy(address(safe), initData);
+
+        // Cast the proxy to the SafeUUPSUpgradeable interface to interact with it
+        safe = Safe(address(proxy));
+
         vm.stopBroadcast();
     }
 
@@ -169,7 +184,7 @@ contract SafeTest is Test {
     // isValidSignature //
     //////////////////////
 
-    function testValidSignature() public {
+    function testValidSignature() public view {
         bytes32 data = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n8payload1"));
         // Signature for the above message using the manager signer
         bytes memory signature =
@@ -177,7 +192,7 @@ contract SafeTest is Test {
         assertEq(safe.isValidSignature(data, signature), bytes4(0x1626ba7e), "The signature should be valid");
     }
 
-    function testValidSignerButInvalidSignature() public {
+    function testValidSignerButInvalidSignature() public view {
         bytes32 data = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n8payload1"));
         // Signature for "payload2" using the manager signer
         bytes memory signature =
@@ -185,7 +200,7 @@ contract SafeTest is Test {
         assertEq(safe.isValidSignature(data, signature), bytes4(0), "The signature should be invalid");
     }
 
-    function testInvalidSigner() public {
+    function testInvalidSigner() public view {
         bytes32 data = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n8payload1"));
         // Signature for the above message using the admin signer
         bytes memory signature =

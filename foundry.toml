@@ -4,3 +4,4 @@ out = "out"
 libs = ["lib"]
 chain_id = 1 # Your custom chain ID, if needed
 eth_rpc_url = "http://localhost:8545"
+remappings = ["@openzeppelin/contracts-upgradeable=lib/openzeppelin-contracts-upgradeable/contracts"]
