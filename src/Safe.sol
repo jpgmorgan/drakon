@@ -1,9 +1,10 @@
+pragma solidity ^0.8.25;
+
 // SPDX-License-Identifier: MIT
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
-pragma solidity ^0.8.21;
 
 interface IERC20 {
     function approve(address spender, uint256 amount) external returns (bool);
@@ -23,6 +24,11 @@ contract Safe is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     event AdminAddressUpdated(address indexed newSigner);
     event ManagerAddressUpdated(address indexed newSigner);
 
+    // Errors
+    error Unauthorized();
+    error TokenApprovalFailed();
+    error TokenTransferFailed();
+
     constructor() {
         _disableInitializers();
     }
@@ -35,13 +41,13 @@ contract Safe is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     modifier onlyAdmin() {
-        require(msg.sender == adminAddress, "Only the allowed signer can execute this");
+        if (msg.sender != adminAddress) revert Unauthorized();
         _;
     }
 
     function setAllowance(address tokenAddr, address contractAddr, uint256 allowance) external onlyAdmin {
         bool success = IERC20(tokenAddr).approve(contractAddr, allowance);
-        require(success, "Token approval failed");
+        if (!success) revert TokenApprovalFailed();
     }
 
     function updateAdminSigner(address newSigner) external onlyAdmin {
@@ -56,7 +62,7 @@ contract Safe is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
     function transferERC20ToAdmin(address tokenContract, uint256 amount) external onlyAdmin {
         bool success = IERC20(tokenContract).transferFrom(address(this), adminAddress, amount);
-        require(success, "Transfer failed");
+        if (!success) revert TokenTransferFailed();
     }
 
     function transferERC721ToAdmin(address nftContract, uint256 tokenId) external onlyAdmin {
