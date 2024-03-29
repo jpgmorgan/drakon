@@ -45,12 +45,12 @@ contract Safe is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         emit ManagerAddressUpdated(newSigner);
     }
 
-    function transferERC20ToAdmin(address tokenContract, uint256 amount) external onlyOwner {
+    function transferERC20ToOwner(address tokenContract, uint256 amount) external onlyOwner {
         bool success = IERC20(tokenContract).transferFrom(address(this), owner(), amount);
         if (!success) revert TokenTransferFailed();
     }
 
-    function transferERC721ToAdmin(address nftContract, uint256 tokenId) external onlyOwner {
+    function transferERC721ToOwner(address nftContract, uint256 tokenId) external onlyOwner {
         IERC721(nftContract).safeTransferFrom(address(this), owner(), tokenId);
     }
 

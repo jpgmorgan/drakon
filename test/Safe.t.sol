@@ -2,10 +2,12 @@
 pragma solidity ^0.8.25;
 
 import {Test} from "forge-std/Test.sol";
-import "forge-std/console.sol";
+import {console} from "forge-std/console.sol";
+
 import {Safe} from "../src/Safe.sol";
 import {SafeV2} from "./SafeV2.sol";
-import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 interface IWETH {
@@ -25,13 +27,19 @@ contract SafeTest is Test {
     Safe public safeLogic;
     ERC1967Proxy public proxy;
 
+    // Addresses
     address private constant WETH = address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
     address private constant BAYC = address(0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D);
     address private constant OWNER = address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
     address private constant MANAGER = address(0x70997970C51812dc3A010C7d01b50e0d17dc79C8);
     address private constant NULL = address(0x0000000000000000000000000000000000000000);
 
+    // Interfaces
     IERC721 private bayc = IERC721(BAYC);
+    IWETH private weth = IWETH(WETH);
+
+    // Errors
+    error OwnableUnauthorizedAccount(address caller);
 
     function setUp() public {
         // Deploy the safe
@@ -55,8 +63,6 @@ contract SafeTest is Test {
     // proxy //
     ///////////
 
-    error OwnableUnauthorizedAccount(address caller);
-
     /**
      * Test that the logic cannot be re-initialized
      */
@@ -70,7 +76,7 @@ contract SafeTest is Test {
      * - proxy can upgrade to a new logic successfully
      * - state is preserved after the upgrade
      */
-    function testUpgradeFunctionalityFromAdmin() public {
+    function testUpgradeFunctionalityFromOwner() public {
         // Deploy the new version of the contract
         Safe safeV2Logic = new SafeV2();
         assertTrue(address(safeV2Logic) != address(safeLogic));
@@ -85,14 +91,14 @@ contract SafeTest is Test {
         assertTrue(safeV2.safeV2Enabled(), "Proxy not redirecting to the SafeV2 logic.");
 
         // Check that the state is intact
-        assertEq(safeV2.owner(), OWNER, "Admin address is incorrect after upgrade.");
+        assertEq(safeV2.owner(), OWNER, "Owner address is incorrect after upgrade.");
         assertEq(safeV2.manager(), MANAGER, "Manager address is incorrect after upgrade.");
     }
 
     /**
      * Test that the proxy logic cannot be changed from a non owner address
      */
-    function testUpgradeFunctionalityFromNonAdmin() public {
+    function testUpgradeFunctionalityFromNonOwner() public {
         Safe safeV2Logic = new SafeV2();
         vm.prank(MANAGER);
         vm.expectRevert(abi.encodeWithSelector(OwnableUnauthorizedAccount.selector, MANAGER));
@@ -111,17 +117,13 @@ contract SafeTest is Test {
      */
     function testSetAllowanceFromOwner() public {
         // Test that the allowance is 0 by default
-        assertEq(
-            IWETH(WETH).allowance(address(safe), NULL),
-            0,
-            "The allowance does not match the expected value."
-        );
+        assertEq(weth.allowance(address(safe), NULL), 0, "The allowance does not match the expected value.");
 
         // Test that the allowance can be changed to infinite
         vm.prank(OWNER);
         safe.setAllowance(WETH, NULL, type(uint256).max);
         assertEq(
-            IWETH(WETH).allowance(address(safe), NULL),
+            weth.allowance(address(safe), NULL),
             type(uint256).max,
             "The allowance does not match the expected value."
         );
@@ -129,11 +131,7 @@ contract SafeTest is Test {
         // Test that the allowance can be reverted to 0 thereafter
         vm.prank(OWNER);
         safe.setAllowance(WETH, NULL, 0);
-        assertEq(
-            IWETH(WETH).allowance(address(safe), NULL),
-            0,
-            "The allowance does not match the expected value."
-        );
+        assertEq(weth.allowance(address(safe), NULL), 0, "The allowance does not match the expected value.");
     }
 
     /**
@@ -141,7 +139,7 @@ contract SafeTest is Test {
      */
     function testSetAllowanceFromNonOwner() public {
         vm.prank(MANAGER);
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSelector(OwnableUnauthorizedAccount.selector, MANAGER));
         safe.setAllowance(WETH, NULL, type(uint256).max);
     }
 
@@ -155,7 +153,7 @@ contract SafeTest is Test {
     function testTransferOwnershipFromOwner() public {
         vm.prank(OWNER);
         safe.transferOwnership(MANAGER);
-        assertEq(safe.owner(), MANAGER, "The admin signer address does not match the expected value.");
+        assertEq(safe.owner(), MANAGER, "The owner signer address does not match the expected value.");
     }
 
     /**
@@ -163,7 +161,7 @@ contract SafeTest is Test {
      */
     function testTransferOwnershipFromNonOwner() public {
         vm.prank(MANAGER);
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSelector(OwnableUnauthorizedAccount.selector, MANAGER));
         safe.transferOwnership(MANAGER);
     }
 
@@ -171,58 +169,58 @@ contract SafeTest is Test {
     // transferManagement //
     ////////////////////////
 
-    /** 
+    /**
      * Test that the manager can only be updated by the owner
-     */ 
+     */
     function testTransferManagementFromOwner() public {
         vm.prank(OWNER);
         safe.transferManagement(NULL);
         assertEq(safe.manager(), NULL, "The manager signer address does not match the expected value.");
     }
 
-    /** 
+    /**
      * Test that the manager cannot be updated from a non owner
-     */ 
+     */
     function testTransferManagementFromNonOwner() public {
-        vm.prank(NULL);
-        vm.expectRevert();
-        safe.transferManagement(NULL);
+        vm.prank(MANAGER);
+        vm.expectRevert(abi.encodeWithSelector(OwnableUnauthorizedAccount.selector, MANAGER));
+        safe.transferManagement(MANAGER);
     }
 
     //////////////////////////
-    // transferERC20ToAdmin //
+    // transferERC20ToOwner //
     //////////////////////////
 
-    function testTransferERC20ToAdminFromOwner() public {
+    function testTransferERC20ToOwnerFromOwner() public {
         // Transfer 10 WETH to the safe
-        uint256 balance = IWETH(WETH).balanceOf(OWNER);
+        uint256 balance = weth.balanceOf(OWNER);
         vm.prank(NULL);
-        IWETH(WETH).transfer(address(safe), 10 ether);
-        assertEq(IWETH(WETH).balanceOf(address(safe)), 10 ether);
+        weth.transfer(address(safe), 10 ether);
+        assertEq(weth.balanceOf(address(safe)), 10 ether);
 
-        // Withraw the 10 WETH to the admin address
+        // Withraw the 10 WETH to the owner address
         vm.prank(OWNER);
-        safe.transferERC20ToAdmin(WETH, 10 ether);
-        assertEq(IWETH(WETH).balanceOf(OWNER), balance + 10 ether);
+        safe.transferERC20ToOwner(WETH, 10 ether);
+        assertEq(weth.balanceOf(OWNER), balance + 10 ether);
     }
 
-    function testTransferERC20ToAdminFromNonOwner() public {
+    function testTransferERC20ToOwnerFromNonOwner() public {
         // Transfer 10 WETH to the safe
         vm.prank(NULL);
-        IWETH(WETH).transfer(address(safe), 10 ether);
-        assertEq(IWETH(WETH).balanceOf(address(safe)), 10 ether);
+        weth.transfer(address(safe), 10 ether);
+        assertEq(weth.balanceOf(address(safe)), 10 ether);
 
-        // Try to withraw the 10 WETH from a non admin address => expecting to revert
+        // Try to withraw the 10 WETH from a non owner address => expecting to revert
         vm.prank(NULL);
-        vm.expectRevert();
-        safe.transferERC20ToAdmin(WETH, 10 ether);
+        vm.expectRevert(abi.encodeWithSelector(OwnableUnauthorizedAccount.selector, NULL));
+        safe.transferERC20ToOwner(WETH, 10 ether);
     }
 
     ///////////////////////////
-    // transferERC721ToAdmin //
+    // transferERC721ToOwner //
     ///////////////////////////
 
-    function testTransferERC721ToAdminFromOwner() public {
+    function testTransferERC721ToOwnerFromOwner() public {
         // Transfer BAYC 69 to the safe
         vm.startPrank(bayc.ownerOf(69));
         bayc.transferFrom(bayc.ownerOf(69), address(safe), 69); // Transfer the BAYC
@@ -231,11 +229,11 @@ contract SafeTest is Test {
 
         // Withraw the ape
         vm.prank(OWNER);
-        safe.transferERC721ToAdmin(BAYC, 69);
+        safe.transferERC721ToOwner(BAYC, 69);
         assertEq(bayc.ownerOf(69), OWNER, "The ownership of the BAYC token did not transfer correctly.");
     }
 
-    function testTransferERC721ToAdminFromNonOwner() public {
+    function testTransferERC721ToOwnerFromNonOwner() public {
         // Transfer BAYC 69 to the safe
         vm.startPrank(bayc.ownerOf(69));
         bayc.transferFrom(bayc.ownerOf(69), address(safe), 69); // Transfer the BAYC
@@ -244,8 +242,8 @@ contract SafeTest is Test {
 
         // Withraw the ape
         vm.prank(NULL);
-        vm.expectRevert();
-        safe.transferERC721ToAdmin(BAYC, 69);
+        vm.expectRevert(abi.encodeWithSelector(OwnableUnauthorizedAccount.selector, NULL));
+        safe.transferERC721ToOwner(BAYC, 69);
         assertEq(bayc.ownerOf(69), address(safe), "The ownership of the BAYC token did not transfer correctly.");
     }
 
