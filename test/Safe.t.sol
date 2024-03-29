@@ -58,6 +58,14 @@ contract SafeTest is Test {
     error OwnableUnauthorizedAccount(address caller);
 
     /**
+     * Test that the logic cannot be re-initialized
+     */
+    function testReInitialization() public {
+        vm.expectRevert(bytes4(keccak256("InvalidInitialization()")));
+        safe.initialize(NULL_ADDRESS, NULL_ADDRESS);
+    }
+
+    /**
      * Test that:
      * - proxy can upgrade to a new logic successfully
      * - state is preserved after the upgrade
