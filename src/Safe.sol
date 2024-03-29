@@ -22,7 +22,6 @@ contract Safe is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     event ManagerAddressUpdated(address indexed newSigner);
 
     // Errors
-    error Unauthorized();
     error TokenApprovalFailed();
     error TokenTransferFailed();
 
