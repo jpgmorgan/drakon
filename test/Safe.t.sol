@@ -55,6 +55,8 @@ contract SafeTest is Test {
     // upgrade //
     /////////////
 
+    error OwnableUnauthorizedAccount(address caller);
+
     function testUpgradeFunctionalityFromAdmin() public {
         // Deploy the new version of the contract
         Safe safeV2Logic = new SafeV2();
@@ -73,6 +75,13 @@ contract SafeTest is Test {
         // Check that the state is intact
         assertEq(safeV2.adminAddress(), ADMIN_ADDRESS, "Admin address is incorrect after upgrade.");
         assertEq(safeV2.managerAddress(), MANAGER_ADDRESS, "Manager address is incorrect after upgrade.");
+    }
+
+    function testUpgradeFunctionalityFromNonAdmin() public {
+        Safe safeV2Logic = new SafeV2();
+        vm.prank(MANAGER_ADDRESS);
+        vm.expectRevert(abi.encodeWithSelector(OwnableUnauthorizedAccount.selector, MANAGER_ADDRESS));
+        safe.upgradeToAndCall(address(safeV2Logic), abi.encodeWithSignature("initializeV2()"));
     }
 
     //////////////////
