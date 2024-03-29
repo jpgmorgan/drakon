@@ -123,9 +123,7 @@ contract SafeTest is Test {
         vm.prank(OWNER);
         safe.setAllowance(WETH, NULL, type(uint256).max);
         assertEq(
-            weth.allowance(address(safe), NULL),
-            type(uint256).max,
-            "The allowance does not match the expected value."
+            weth.allowance(address(safe), NULL), type(uint256).max, "The allowance does not match the expected value."
         );
 
         // Test that the allowance can be reverted to 0 thereafter
