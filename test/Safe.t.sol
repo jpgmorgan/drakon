@@ -51,9 +51,9 @@ contract SafeTest is Test {
         assertTrue(safe.owner() != address(0), "Owner not initialized correctly.");
     }
 
-    /////////////
-    // upgrade //
-    /////////////
+    ///////////
+    // proxy //
+    ///////////
 
     error OwnableUnauthorizedAccount(address caller);
 
@@ -85,6 +85,18 @@ contract SafeTest is Test {
         vm.prank(MANAGER_ADDRESS);
         vm.expectRevert(abi.encodeWithSelector(OwnableUnauthorizedAccount.selector, MANAGER_ADDRESS));
         safe.upgradeToAndCall(address(safeV2Logic), abi.encodeWithSignature("initializeV2()"));
+    }
+
+    /**
+     * Test that the proxy cannot be destroyed by a selfdestruct malicious code insert
+     */
+    function testProxyImmortality() public {
+        Safe safeV2Logic = new SafeV2();
+        vm.prank(ADMIN_ADDRESS);
+        safe.upgradeToAndCall(address(safeV2Logic), abi.encodeWithSignature("initializeV2()"));
+        SafeV2 safeV2 = SafeV2(address(proxy));
+        safeV2.destroy();
+        assertTrue(safeV2.safeV2Enabled(), "Proxy is dead.");
     }
 
     //////////////////
