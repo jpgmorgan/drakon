@@ -4,7 +4,9 @@ pragma solidity ^0.8.25;
 import {Test} from "forge-std/Test.sol";
 import "forge-std/console.sol";
 import {Safe} from "../src/Safe.sol";
+import {SafeV2} from "./SafeV2.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 interface IWETH {
     function deposit() external payable;
@@ -20,6 +22,7 @@ interface IERC721 {
 
 contract SafeTest is Test {
     Safe public safe;
+    Safe public safeLogic;
     ERC1967Proxy public proxy;
 
     address private constant WETH_ADDRESS = address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
@@ -31,19 +34,41 @@ contract SafeTest is Test {
     IERC721 private bayc = IERC721(BAYC_ADDRESS);
 
     function setUp() public {
-        vm.startBroadcast();
-
         // Deploy the safe
-        safe = new Safe();
+        safeLogic = new Safe();
 
         // Deploy the proxy, pointing to the implementation and initializing it
+        vm.prank(ADMIN_ADDRESS);
         bytes memory initData = abi.encodeWithSelector(Safe.initialize.selector, ADMIN_ADDRESS, MANAGER_ADDRESS);
-        proxy = new ERC1967Proxy(address(safe), initData);
+        proxy = new ERC1967Proxy(address(safeLogic), initData);
 
         // Cast the proxy to the SafeUUPSUpgradeable interface to interact with it
         safe = Safe(address(proxy));
 
-        vm.stopBroadcast();
+        // Ensure initialization
+        assertEq(safe.adminAddress(), ADMIN_ADDRESS, "Admin address incorrect after initialization.");
+        assertEq(safe.managerAddress(), MANAGER_ADDRESS, "Manager address incorrect after initialization.");
+        assertTrue(safe.owner() != address(0), "Owner not initialized correctly.");
+    }
+
+    /////////////
+    // upgrade //
+    /////////////
+
+    function testUpgradeFunctionality() public {
+        // Deploy the new version of the contract
+        Safe safeV2Implementation = new SafeV2();
+        // Ensure it's a different implementation
+        assertTrue(address(safeV2Implementation) != address(safeLogic));
+
+        // Perform the upgrade
+        vm.prank(ADMIN_ADDRESS);
+        bytes memory payload = abi.encodeWithSignature("initializeV2()");
+        safe.upgradeToAndCall(address(safeV2Implementation), payload);
+
+        // Validate the proxy now delegates calls to the new implementation
+        // address currentImplementation = proxy.implementation();
+        // assertEq(currentImplementation, address(safeV2Implementation), "Upgrade did not set the new implementation correctly.");
     }
 
     //////////////////

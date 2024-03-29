@@ -18,7 +18,7 @@ contract DeploySafe is Script {
         bytes memory initData = abi.encodeWithSelector(Safe.initialize.selector, ADMIN_ADDRESS, MANAGER_ADDRESS);
 
         // Deploy the proxy, pointing to the implementation and including initializer call
-        ERC1967Proxy proxy = new ERC1967Proxy(address(safe), initData);
+        new ERC1967Proxy(address(safe), initData);
 
         // For further interactions, use Safe at the proxy's address
         // Safe safeProxy = Safe(address(proxy));
