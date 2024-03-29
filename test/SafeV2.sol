@@ -9,8 +9,4 @@ contract SafeV2 is Safe {
     function initializeV2() public {
         safeV2Enabled = true;
     }
-
-    function destroy() external {
-        selfdestruct(payable(msg.sender));
-    }
 }

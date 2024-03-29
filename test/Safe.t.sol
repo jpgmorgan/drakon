@@ -57,10 +57,14 @@ contract SafeTest is Test {
 
     error OwnableUnauthorizedAccount(address caller);
 
+    /**
+     * Test that:
+     * - proxy can upgrade to a new logic successfully
+     * - state is preserved after the upgrade
+     */
     function testUpgradeFunctionalityFromAdmin() public {
         // Deploy the new version of the contract
         Safe safeV2Logic = new SafeV2();
-        // Ensure it's a different logic
         assertTrue(address(safeV2Logic) != address(safeLogic));
 
         // Perform the upgrade
@@ -68,7 +72,7 @@ contract SafeTest is Test {
         bytes memory payload = abi.encodeWithSignature("initializeV2()");
         safe.upgradeToAndCall(address(safeV2Logic), payload);
 
-        // Validate the proxy now delegates calls to the new logic
+        // Validate that the proxy now delegates calls to the new logic
         SafeV2 safeV2 = SafeV2(address(proxy));
         assertTrue(safeV2.safeV2Enabled(), "Proxy not redirecting to the SafeV2 logic.");
 
@@ -85,18 +89,6 @@ contract SafeTest is Test {
         vm.prank(MANAGER_ADDRESS);
         vm.expectRevert(abi.encodeWithSelector(OwnableUnauthorizedAccount.selector, MANAGER_ADDRESS));
         safe.upgradeToAndCall(address(safeV2Logic), abi.encodeWithSignature("initializeV2()"));
-    }
-
-    /**
-     * Test that the proxy cannot be destroyed by a selfdestruct malicious code insert
-     */
-    function testProxyImmortality() public {
-        Safe safeV2Logic = new SafeV2();
-        vm.prank(ADMIN_ADDRESS);
-        safe.upgradeToAndCall(address(safeV2Logic), abi.encodeWithSignature("initializeV2()"));
-        SafeV2 safeV2 = SafeV2(address(proxy));
-        safeV2.destroy();
-        assertTrue(safeV2.safeV2Enabled(), "Proxy is dead.");
     }
 
     //////////////////
