@@ -16,11 +16,9 @@ interface IERC721 {
 
 contract Safe is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     // Signers
-    address public admin;
     address public manager;
 
     // Events
-    event AdminAddressUpdated(address indexed newSigner);
     event ManagerAddressUpdated(address indexed newSigner);
 
     // Errors
@@ -32,40 +30,29 @@ contract Safe is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         _disableInitializers();
     }
 
-    function initialize(address _admin, address _manager) public initializer {
+    function initialize(address _manager) public initializer {
         __Ownable_init(msg.sender); //sets owner to msg.sender
         __UUPSUpgradeable_init();
-        admin = _admin;
         manager = _manager;
     }
 
-    modifier onlyAdmin() {
-        if (msg.sender != admin) revert Unauthorized();
-        _;
-    }
-
-    function setAllowance(address tokenAddr, address contractAddr, uint256 allowance) external onlyAdmin {
+    function setAllowance(address tokenAddr, address contractAddr, uint256 allowance) external onlyOwner {
         bool success = IERC20(tokenAddr).approve(contractAddr, allowance);
         if (!success) revert TokenApprovalFailed();
     }
 
-    function updateAdmin(address newSigner) external onlyAdmin {
-        admin = newSigner;
-        emit AdminAddressUpdated(newSigner);
-    }
-
-    function updateManager(address newSigner) external onlyAdmin {
+    function transferManagement(address newSigner) external onlyOwner {
         manager = newSigner;
         emit ManagerAddressUpdated(newSigner);
     }
 
-    function transferERC20ToAdmin(address tokenContract, uint256 amount) external onlyAdmin {
-        bool success = IERC20(tokenContract).transferFrom(address(this), admin, amount);
+    function transferERC20ToAdmin(address tokenContract, uint256 amount) external onlyOwner {
+        bool success = IERC20(tokenContract).transferFrom(address(this), owner(), amount);
         if (!success) revert TokenTransferFailed();
     }
 
-    function transferERC721ToAdmin(address nftContract, uint256 tokenId) external onlyAdmin {
-        IERC721(nftContract).safeTransferFrom(address(this), admin, tokenId);
+    function transferERC721ToAdmin(address nftContract, uint256 tokenId) external onlyOwner {
+        IERC721(nftContract).safeTransferFrom(address(this), owner(), tokenId);
     }
 
     function isValidSignature(bytes32 _data, bytes memory _signature) external view returns (bytes4 magicValue) {

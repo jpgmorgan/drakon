@@ -25,30 +25,29 @@ contract SafeTest is Test {
     Safe public safeLogic;
     ERC1967Proxy public proxy;
 
-    address private constant WETH_ADDRESS = address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
-    address private constant BAYC_ADDRESS = address(0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D);
-    address private constant ADMIN_ADDRESS = address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
-    address private constant MANAGER_ADDRESS = address(0x70997970C51812dc3A010C7d01b50e0d17dc79C8);
-    address private constant NULL_ADDRESS = address(0x0000000000000000000000000000000000000000);
+    address private constant WETH = address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+    address private constant BAYC = address(0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D);
+    address private constant OWNER = address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
+    address private constant MANAGER = address(0x70997970C51812dc3A010C7d01b50e0d17dc79C8);
+    address private constant NULL = address(0x0000000000000000000000000000000000000000);
 
-    IERC721 private bayc = IERC721(BAYC_ADDRESS);
+    IERC721 private bayc = IERC721(BAYC);
 
     function setUp() public {
         // Deploy the safe
         safeLogic = new Safe();
 
         // Deploy the proxy, pointing to the implementation and initializing it
-        vm.prank(ADMIN_ADDRESS);
-        bytes memory initData = abi.encodeWithSelector(Safe.initialize.selector, ADMIN_ADDRESS, MANAGER_ADDRESS);
+        vm.prank(OWNER);
+        bytes memory initData = abi.encodeWithSelector(Safe.initialize.selector, MANAGER);
         proxy = new ERC1967Proxy(address(safeLogic), initData);
 
         // Cast the proxy to the SafeUUPSUpgradeable interface to interact with it
         safe = Safe(address(proxy));
 
         // Ensure initialization
-        assertEq(safe.admin(), ADMIN_ADDRESS, "Admin address incorrect after initialization.");
-        assertEq(safe.manager(), MANAGER_ADDRESS, "Manager address incorrect after initialization.");
-        assertEq(safe.owner(), ADMIN_ADDRESS, "Owner address incorrect after initialization.");
+        assertEq(safe.manager(), MANAGER, "Manager address incorrect after initialization.");
+        assertEq(safe.owner(), OWNER, "Owner address incorrect after initialization.");
         assertTrue(safe.owner() != address(0), "Owner not initialized correctly.");
     }
 
@@ -63,7 +62,7 @@ contract SafeTest is Test {
      */
     function testReInitialization() public {
         vm.expectRevert(bytes4(keccak256("InvalidInitialization()")));
-        safe.initialize(NULL_ADDRESS, NULL_ADDRESS);
+        safe.initialize(NULL);
     }
 
     /**
@@ -77,7 +76,7 @@ contract SafeTest is Test {
         assertTrue(address(safeV2Logic) != address(safeLogic));
 
         // Perform the upgrade
-        vm.prank(ADMIN_ADDRESS);
+        vm.prank(OWNER);
         bytes memory payload = abi.encodeWithSignature("initializeV2()");
         safe.upgradeToAndCall(address(safeV2Logic), payload);
 
@@ -86,8 +85,8 @@ contract SafeTest is Test {
         assertTrue(safeV2.safeV2Enabled(), "Proxy not redirecting to the SafeV2 logic.");
 
         // Check that the state is intact
-        assertEq(safeV2.admin(), ADMIN_ADDRESS, "Admin address is incorrect after upgrade.");
-        assertEq(safeV2.manager(), MANAGER_ADDRESS, "Manager address is incorrect after upgrade.");
+        assertEq(safeV2.owner(), OWNER, "Admin address is incorrect after upgrade.");
+        assertEq(safeV2.manager(), MANAGER, "Manager address is incorrect after upgrade.");
     }
 
     /**
@@ -95,8 +94,8 @@ contract SafeTest is Test {
      */
     function testUpgradeFunctionalityFromNonAdmin() public {
         Safe safeV2Logic = new SafeV2();
-        vm.prank(MANAGER_ADDRESS);
-        vm.expectRevert(abi.encodeWithSelector(OwnableUnauthorizedAccount.selector, MANAGER_ADDRESS));
+        vm.prank(MANAGER);
+        vm.expectRevert(abi.encodeWithSelector(OwnableUnauthorizedAccount.selector, MANAGER));
         safe.upgradeToAndCall(address(safeV2Logic), abi.encodeWithSignature("initializeV2()"));
     }
 
@@ -104,133 +103,149 @@ contract SafeTest is Test {
     // setAllowance //
     //////////////////
 
-    function testSetAllowanceFromAdmin() public {
+    /**
+     * Test:
+     * - allowance is 0 by default
+     * - allowance can be changed to infinite
+     * - can be reverted to 0 thereafter
+     */
+    function testSetAllowanceFromOwner() public {
         // Test that the allowance is 0 by default
         assertEq(
-            IWETH(WETH_ADDRESS).allowance(address(safe), NULL_ADDRESS),
+            IWETH(WETH).allowance(address(safe), NULL),
             0,
             "The allowance does not match the expected value."
         );
 
         // Test that the allowance can be changed to infinite
-        vm.prank(ADMIN_ADDRESS);
-        safe.setAllowance(WETH_ADDRESS, NULL_ADDRESS, type(uint256).max);
+        vm.prank(OWNER);
+        safe.setAllowance(WETH, NULL, type(uint256).max);
         assertEq(
-            IWETH(WETH_ADDRESS).allowance(address(safe), NULL_ADDRESS),
+            IWETH(WETH).allowance(address(safe), NULL),
             type(uint256).max,
             "The allowance does not match the expected value."
         );
 
         // Test that the allowance can be reverted to 0 thereafter
-        vm.prank(ADMIN_ADDRESS);
-        safe.setAllowance(WETH_ADDRESS, NULL_ADDRESS, 0);
+        vm.prank(OWNER);
+        safe.setAllowance(WETH, NULL, 0);
         assertEq(
-            IWETH(WETH_ADDRESS).allowance(address(safe), NULL_ADDRESS),
+            IWETH(WETH).allowance(address(safe), NULL),
             0,
             "The allowance does not match the expected value."
         );
     }
 
-    function testSetAllowanceFromNonAdmin() public {
-        // Test that the allowance can't be changed by a non admin address
-        vm.prank(MANAGER_ADDRESS);
+    /**
+     * Test that the allowance can't be changed by a non owner address
+     */
+    function testSetAllowanceFromNonOwner() public {
+        vm.prank(MANAGER);
         vm.expectRevert();
-        safe.setAllowance(WETH_ADDRESS, NULL_ADDRESS, type(uint256).max);
+        safe.setAllowance(WETH, NULL, type(uint256).max);
     }
 
-    /////////////////
-    // updateAdmin //
-    /////////////////
+    ///////////////////////
+    // transferOwnership //
+    ///////////////////////
 
-    function testUpdateAdminFromAdmin() public {
-        // Test that the admin address can only be updated from the admin signer
-        vm.prank(ADMIN_ADDRESS);
-        safe.updateAdmin(NULL_ADDRESS);
-        assertEq(safe.admin(), NULL_ADDRESS, "The admin signer address does not match the expected value.");
+    /**
+     * Test that the owner can only be updated by the owner
+     */
+    function testTransferOwnershipFromOwner() public {
+        vm.prank(OWNER);
+        safe.transferOwnership(MANAGER);
+        assertEq(safe.owner(), MANAGER, "The admin signer address does not match the expected value.");
     }
 
-    function testUpdateAdminFromNonAdmin() public {
-        // Test that the admin address cannot be updated from a non admin signer
-        vm.prank(NULL_ADDRESS);
+    /**
+     * Test that the owner cannot be updated from a non owner
+     */
+    function testTransferOwnershipFromNonOwner() public {
+        vm.prank(MANAGER);
         vm.expectRevert();
-        safe.updateAdmin(NULL_ADDRESS);
+        safe.transferOwnership(MANAGER);
     }
 
-    ///////////////////
-    // updateManager //
-    ///////////////////
+    ////////////////////////
+    // transferManagement //
+    ////////////////////////
 
-    function testUpdateManagerFromAdmin() public {
-        // Test that the signer address can only be updated from the admin signer
-        vm.prank(ADMIN_ADDRESS);
-        safe.updateManager(NULL_ADDRESS);
-        assertEq(safe.manager(), NULL_ADDRESS, "The manager signer address does not match the expected value.");
+    /** 
+     * Test that the manager can only be updated by the owner
+     */ 
+    function testTransferManagementFromOwner() public {
+        vm.prank(OWNER);
+        safe.transferManagement(NULL);
+        assertEq(safe.manager(), NULL, "The manager signer address does not match the expected value.");
     }
 
-    function testUpdateManagerFromNonAdmin() public {
-        // Test that the manager address cannot be updated from a non admin signer
-        vm.prank(NULL_ADDRESS);
+    /** 
+     * Test that the manager cannot be updated from a non owner
+     */ 
+    function testTransferManagementFromNonOwner() public {
+        vm.prank(NULL);
         vm.expectRevert();
-        safe.updateManager(NULL_ADDRESS);
+        safe.transferManagement(NULL);
     }
 
     //////////////////////////
     // transferERC20ToAdmin //
     //////////////////////////
 
-    function testTransferERC20ToAdminFromAdmin() public {
+    function testTransferERC20ToAdminFromOwner() public {
         // Transfer 10 WETH to the safe
-        uint256 balance = IWETH(WETH_ADDRESS).balanceOf(ADMIN_ADDRESS);
-        vm.prank(NULL_ADDRESS);
-        IWETH(WETH_ADDRESS).transfer(address(safe), 10 ether);
-        assertEq(IWETH(WETH_ADDRESS).balanceOf(address(safe)), 10 ether);
+        uint256 balance = IWETH(WETH).balanceOf(OWNER);
+        vm.prank(NULL);
+        IWETH(WETH).transfer(address(safe), 10 ether);
+        assertEq(IWETH(WETH).balanceOf(address(safe)), 10 ether);
 
         // Withraw the 10 WETH to the admin address
-        vm.prank(ADMIN_ADDRESS);
-        safe.transferERC20ToAdmin(WETH_ADDRESS, 10 ether);
-        assertEq(IWETH(WETH_ADDRESS).balanceOf(ADMIN_ADDRESS), balance + 10 ether);
+        vm.prank(OWNER);
+        safe.transferERC20ToAdmin(WETH, 10 ether);
+        assertEq(IWETH(WETH).balanceOf(OWNER), balance + 10 ether);
     }
 
-    function testTransferERC20ToAdminFromNonAdmin() public {
+    function testTransferERC20ToAdminFromNonOwner() public {
         // Transfer 10 WETH to the safe
-        vm.prank(NULL_ADDRESS);
-        IWETH(WETH_ADDRESS).transfer(address(safe), 10 ether);
-        assertEq(IWETH(WETH_ADDRESS).balanceOf(address(safe)), 10 ether);
+        vm.prank(NULL);
+        IWETH(WETH).transfer(address(safe), 10 ether);
+        assertEq(IWETH(WETH).balanceOf(address(safe)), 10 ether);
 
         // Try to withraw the 10 WETH from a non admin address => expecting to revert
-        vm.prank(NULL_ADDRESS);
+        vm.prank(NULL);
         vm.expectRevert();
-        safe.transferERC20ToAdmin(WETH_ADDRESS, 10 ether);
+        safe.transferERC20ToAdmin(WETH, 10 ether);
     }
 
     ///////////////////////////
     // transferERC721ToAdmin //
     ///////////////////////////
 
-    function testTransferERC721ToAdminFromAdmin() public {
+    function testTransferERC721ToAdminFromOwner() public {
         // Transfer BAYC 69 to the safe
         vm.startPrank(bayc.ownerOf(69));
-        IERC721(BAYC_ADDRESS).transferFrom(bayc.ownerOf(69), address(safe), 69); // Transfer the BAYC
+        bayc.transferFrom(bayc.ownerOf(69), address(safe), 69); // Transfer the BAYC
         vm.stopPrank();
         assertEq(bayc.ownerOf(69), address(safe), "The ownership of the BAYC token did not transfer correctly.");
 
         // Withraw the ape
-        vm.prank(ADMIN_ADDRESS);
-        safe.transferERC721ToAdmin(BAYC_ADDRESS, 69);
-        assertEq(bayc.ownerOf(69), ADMIN_ADDRESS, "The ownership of the BAYC token did not transfer correctly.");
+        vm.prank(OWNER);
+        safe.transferERC721ToAdmin(BAYC, 69);
+        assertEq(bayc.ownerOf(69), OWNER, "The ownership of the BAYC token did not transfer correctly.");
     }
 
-    function testTransferERC721ToAdminFromNonAdmin() public {
+    function testTransferERC721ToAdminFromNonOwner() public {
         // Transfer BAYC 69 to the safe
         vm.startPrank(bayc.ownerOf(69));
-        IERC721(BAYC_ADDRESS).transferFrom(bayc.ownerOf(69), address(safe), 69); // Transfer the BAYC
+        bayc.transferFrom(bayc.ownerOf(69), address(safe), 69); // Transfer the BAYC
         vm.stopPrank();
         assertEq(bayc.ownerOf(69), address(safe), "The ownership of the BAYC token did not transfer correctly.");
 
         // Withraw the ape
-        vm.prank(NULL_ADDRESS);
+        vm.prank(NULL);
         vm.expectRevert();
-        safe.transferERC721ToAdmin(BAYC_ADDRESS, 69);
+        safe.transferERC721ToAdmin(BAYC, 69);
         assertEq(bayc.ownerOf(69), address(safe), "The ownership of the BAYC token did not transfer correctly.");
     }
 
@@ -256,7 +271,7 @@ contract SafeTest is Test {
 
     function testInvalidSigner() public view {
         bytes32 data = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n8payload1"));
-        // Signature for the above message using the admin signer
+        // Signature for the above message using the owner signer
         bytes memory signature =
             hex"e69397c4bf4def47ecc97afc5e6fedc3c0d43d29d3941fbd42401a25aec657283ff44d84b395bd25b0d6e315865a1fd6ad0b761f7792f615960966e6289e2dc21b";
         assertEq(safe.isValidSignature(data, signature), bytes4(0), "The signature should be invalid");
