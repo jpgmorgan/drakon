@@ -48,6 +48,7 @@ contract SafeTest is Test {
         // Ensure initialization
         assertEq(safe.adminAddress(), ADMIN_ADDRESS, "Admin address incorrect after initialization.");
         assertEq(safe.managerAddress(), MANAGER_ADDRESS, "Manager address incorrect after initialization.");
+        assertEq(safe.owner(), ADMIN_ADDRESS, "Owner address incorrect after initialization.");
         assertTrue(safe.owner() != address(0), "Owner not initialized correctly.");
     }
 
