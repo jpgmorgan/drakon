@@ -77,6 +77,9 @@ contract SafeTest is Test {
         assertEq(safeV2.managerAddress(), MANAGER_ADDRESS, "Manager address is incorrect after upgrade.");
     }
 
+    /**
+     * Test that the proxy logic cannot be changed from a non owner address
+     */
     function testUpgradeFunctionalityFromNonAdmin() public {
         Safe safeV2Logic = new SafeV2();
         vm.prank(MANAGER_ADDRESS);
