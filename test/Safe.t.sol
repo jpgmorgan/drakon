@@ -55,20 +55,24 @@ contract SafeTest is Test {
     // upgrade //
     /////////////
 
-    function testUpgradeFunctionality() public {
+    function testUpgradeFunctionalityFromAdmin() public {
         // Deploy the new version of the contract
-        Safe safeV2Implementation = new SafeV2();
-        // Ensure it's a different implementation
-        assertTrue(address(safeV2Implementation) != address(safeLogic));
+        Safe safeV2Logic = new SafeV2();
+        // Ensure it's a different logic
+        assertTrue(address(safeV2Logic) != address(safeLogic));
 
         // Perform the upgrade
         vm.prank(ADMIN_ADDRESS);
         bytes memory payload = abi.encodeWithSignature("initializeV2()");
-        safe.upgradeToAndCall(address(safeV2Implementation), payload);
+        safe.upgradeToAndCall(address(safeV2Logic), payload);
 
-        // Validate the proxy now delegates calls to the new implementation
-        // address currentImplementation = proxy.implementation();
-        // assertEq(currentImplementation, address(safeV2Implementation), "Upgrade did not set the new implementation correctly.");
+        // Validate the proxy now delegates calls to the new logic
+        SafeV2 safeV2 = SafeV2(address(proxy));
+        assertTrue(safeV2.safeV2Enabled(), "Proxy not redirecting to the SafeV2 logic.");
+
+        // Check that the state is intact
+        assertEq(safeV2.adminAddress(), ADMIN_ADDRESS, "Admin address is incorrect after upgrade.");
+        assertEq(safeV2.managerAddress(), MANAGER_ADDRESS, "Manager address is incorrect after upgrade.");
     }
 
     //////////////////
