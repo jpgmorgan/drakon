@@ -46,8 +46,8 @@ contract SafeTest is Test {
         safe = Safe(address(proxy));
 
         // Ensure initialization
-        assertEq(safe.adminAddress(), ADMIN_ADDRESS, "Admin address incorrect after initialization.");
-        assertEq(safe.managerAddress(), MANAGER_ADDRESS, "Manager address incorrect after initialization.");
+        assertEq(safe.admin(), ADMIN_ADDRESS, "Admin address incorrect after initialization.");
+        assertEq(safe.manager(), MANAGER_ADDRESS, "Manager address incorrect after initialization.");
         assertEq(safe.owner(), ADMIN_ADDRESS, "Owner address incorrect after initialization.");
         assertTrue(safe.owner() != address(0), "Owner not initialized correctly.");
     }
@@ -86,8 +86,8 @@ contract SafeTest is Test {
         assertTrue(safeV2.safeV2Enabled(), "Proxy not redirecting to the SafeV2 logic.");
 
         // Check that the state is intact
-        assertEq(safeV2.adminAddress(), ADMIN_ADDRESS, "Admin address is incorrect after upgrade.");
-        assertEq(safeV2.managerAddress(), MANAGER_ADDRESS, "Manager address is incorrect after upgrade.");
+        assertEq(safeV2.admin(), ADMIN_ADDRESS, "Admin address is incorrect after upgrade.");
+        assertEq(safeV2.manager(), MANAGER_ADDRESS, "Manager address is incorrect after upgrade.");
     }
 
     /**
@@ -138,40 +138,40 @@ contract SafeTest is Test {
         safe.setAllowance(WETH_ADDRESS, NULL_ADDRESS, type(uint256).max);
     }
 
-    ///////////////////////
-    // updateAdminSigner //
-    ///////////////////////
+    /////////////////
+    // updateAdmin //
+    /////////////////
 
-    function testUpdateAdminSignerFromAdmin() public {
+    function testUpdateAdminFromAdmin() public {
         // Test that the admin address can only be updated from the admin signer
         vm.prank(ADMIN_ADDRESS);
-        safe.updateAdminSigner(NULL_ADDRESS);
-        assertEq(safe.adminAddress(), NULL_ADDRESS, "The admin signer address does not match the expected value.");
+        safe.updateAdmin(NULL_ADDRESS);
+        assertEq(safe.admin(), NULL_ADDRESS, "The admin signer address does not match the expected value.");
     }
 
-    function testUpdateAdminSignerFromNonAdmin() public {
+    function testUpdateAdminFromNonAdmin() public {
         // Test that the admin address cannot be updated from a non admin signer
         vm.prank(NULL_ADDRESS);
         vm.expectRevert();
-        safe.updateAdminSigner(NULL_ADDRESS);
+        safe.updateAdmin(NULL_ADDRESS);
     }
 
-    /////////////////////////
-    // updateManagerSigner //
-    /////////////////////////
+    ///////////////////
+    // updateManager //
+    ///////////////////
 
-    function testUpdateManagerSignerFromAdmin() public {
+    function testUpdateManagerFromAdmin() public {
         // Test that the signer address can only be updated from the admin signer
         vm.prank(ADMIN_ADDRESS);
-        safe.updateManagerSigner(NULL_ADDRESS);
-        assertEq(safe.managerAddress(), NULL_ADDRESS, "The manager signer address does not match the expected value.");
+        safe.updateManager(NULL_ADDRESS);
+        assertEq(safe.manager(), NULL_ADDRESS, "The manager signer address does not match the expected value.");
     }
 
-    function testUpdateManagerSignerFromNonAdmin() public {
+    function testUpdateManagerFromNonAdmin() public {
         // Test that the manager address cannot be updated from a non admin signer
         vm.prank(NULL_ADDRESS);
         vm.expectRevert();
-        safe.updateManagerSigner(NULL_ADDRESS);
+        safe.updateManager(NULL_ADDRESS);
     }
 
     //////////////////////////

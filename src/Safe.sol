@@ -16,8 +16,8 @@ interface IERC721 {
 
 contract Safe is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     // Signers
-    address public adminAddress;
-    address public managerAddress;
+    address public admin;
+    address public manager;
 
     // Events
     event AdminAddressUpdated(address indexed newSigner);
@@ -32,15 +32,15 @@ contract Safe is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         _disableInitializers();
     }
 
-    function initialize(address _adminAddress, address _managerAddress) public initializer {
+    function initialize(address _admin, address _manager) public initializer {
         __Ownable_init(msg.sender); //sets owner to msg.sender
         __UUPSUpgradeable_init();
-        adminAddress = _adminAddress;
-        managerAddress = _managerAddress;
+        admin = _admin;
+        manager = _manager;
     }
 
     modifier onlyAdmin() {
-        if (msg.sender != adminAddress) revert Unauthorized();
+        if (msg.sender != admin) revert Unauthorized();
         _;
     }
 
@@ -49,27 +49,27 @@ contract Safe is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         if (!success) revert TokenApprovalFailed();
     }
 
-    function updateAdminSigner(address newSigner) external onlyAdmin {
-        adminAddress = newSigner;
+    function updateAdmin(address newSigner) external onlyAdmin {
+        admin = newSigner;
         emit AdminAddressUpdated(newSigner);
     }
 
-    function updateManagerSigner(address newSigner) external onlyAdmin {
-        managerAddress = newSigner;
+    function updateManager(address newSigner) external onlyAdmin {
+        manager = newSigner;
         emit ManagerAddressUpdated(newSigner);
     }
 
     function transferERC20ToAdmin(address tokenContract, uint256 amount) external onlyAdmin {
-        bool success = IERC20(tokenContract).transferFrom(address(this), adminAddress, amount);
+        bool success = IERC20(tokenContract).transferFrom(address(this), admin, amount);
         if (!success) revert TokenTransferFailed();
     }
 
     function transferERC721ToAdmin(address nftContract, uint256 tokenId) external onlyAdmin {
-        IERC721(nftContract).safeTransferFrom(address(this), adminAddress, tokenId);
+        IERC721(nftContract).safeTransferFrom(address(this), admin, tokenId);
     }
 
     function isValidSignature(bytes32 _data, bytes memory _signature) external view returns (bytes4 magicValue) {
-        // Using ecrecover to ensure that the signature is valid and comes from the managerSignerAddress
+        // Using ecrecover to ensure that the signature is valid and comes from the manager
         uint8 v = uint8(_signature[64]);
         bytes32 r;
         bytes32 s;
@@ -78,7 +78,7 @@ contract Safe is Initializable, OwnableUpgradeable, UUPSUpgradeable {
             s := mload(add(_signature, 64))
         }
 
-        if (ecrecover(_data, v, r, s) == managerAddress) {
+        if (ecrecover(_data, v, r, s) == manager) {
             return bytes4(0x1626ba7e); // Return magic value for ERC-1271 compliant validation
         }
 
